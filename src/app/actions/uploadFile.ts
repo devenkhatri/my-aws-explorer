@@ -20,7 +20,6 @@ export async function uploadFileToS3(
   }
 
   try {
-    // All operations that might throw an error are now inside this single try block
     const s3Client = new S3Client({
       region: config.region,
       credentials: {
@@ -43,22 +42,22 @@ export async function uploadFileToS3(
 
   } catch (error) {
     console.error('Error in uploadFileToS3 server action:', error);
-    // Handle S3 specific errors and then generic errors
+    
     if (error instanceof Error) {
+      let specificMessage = `Failed to upload file: ${String(error.message || 'Unknown error detail')}`;
       // Check for common AWS SDK error names
       if (error.name === 'AccessDenied') {
-        return { success: false, message: 'Access Denied. Check S3 bucket permissions for PutObject and ensure your IAM user/role has s3:PutObject permission on the bucket/prefix.' };
+        specificMessage = 'Access Denied. Check S3 bucket permissions for PutObject and ensure your IAM user/role has s3:PutObject permission on the bucket/prefix.';
+      } else if (error.name === 'NoSuchBucket') {
+        specificMessage = `S3 Bucket "${config.bucketName}" not found. Please check the bucket name.`;
+      } else if (error.name === 'InvalidAccessKeyId' || error.name === 'SignatureDoesNotMatch' || error.name === 'AuthFailure') {
+        specificMessage = 'Invalid AWS credentials. Please check your Access Key ID and Secret Access Key.';
       }
-      if (error.name === 'NoSuchBucket') {
-        return { success: false, message: `S3 Bucket "${config.bucketName}" not found. Please check the bucket name.`};
-      }
-      if (error.name === 'InvalidAccessKeyId' || error.name === 'SignatureDoesNotMatch' || error.name === 'AuthFailure') {
-        return { success: false, message: 'Invalid AWS credentials. Please check your Access Key ID and Secret Access Key.' };
-      }
-      // Generic message for other errors
-      return { success: false, message: `Failed to upload file: ${error.message}` };
+      // Note: The specificMessage for known errors will override the generic one.
+      return { success: false, message: specificMessage };
     }
-    // Fallback for non-Error objects
-    return { success: false, message: 'An unknown error occurred during file upload.' };
+    
+    // Fallback for non-Error objects or other unexpected scenarios
+    return { success: false, message: 'An unknown error occurred during file upload (the error object was not an instance of Error or had no message).' };
   }
 }
