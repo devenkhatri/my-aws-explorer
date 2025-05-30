@@ -15,7 +15,7 @@ import { FileTree } from '@/components/s3-explorer/FileTree';
 import { FileInfoDisplay } from '@/components/s3-explorer/FileInfoDisplay';
 import { Button } from '@/components/ui/button';
 import type { S3Config, S3Object, S3File } from '@/types/s3';
-import { fetchS3Objects } from '@/lib/s3-utils'; // Import the new utility
+import { fetchS3Objects } from '@/lib/s3-utils';
 import { CodeXml, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -27,33 +27,47 @@ export default function S3ExplorerPage() {
   const [selectedFile, setSelectedFile] = useState<S3File | null>(null);
   const { toast } = useToast();
 
+  const loadS3Data = async (currentConfig: S3Config) => {
+    setIsLoadingFiles(true);
+    try {
+      const objects = await fetchS3Objects(currentConfig);
+      setS3Objects(objects);
+    } catch (error) {
+      console.error("Failed to load S3 objects:", error);
+      toast({
+        title: 'Error Loading S3 Data',
+        description: error instanceof Error ? error.message : 'Could not fetch data from S3.',
+        variant: 'destructive',
+        action: <AlertTriangle className="text-yellow-500" />,
+      });
+      setS3Objects([]);
+    } finally {
+      setIsLoadingFiles(false);
+    }
+  };
+
   const handleConfigChange = async (config: S3Config | null) => {
     setS3Config(config);
     setSelectedFile(null); 
     setS3Objects([]); 
 
     if (config) {
-      setIsLoadingFiles(true);
-      try {
-        const objects = await fetchS3Objects(config);
-        setS3Objects(objects);
-      } catch (error) {
-        console.error("Failed to load S3 objects:", error);
-        toast({
-          title: 'Error Loading S3 Data',
-          description: error instanceof Error ? error.message : 'Could not fetch data from S3.',
-          variant: 'destructive',
-          action: <AlertTriangle className="text-yellow-500" />,
-        });
-        setS3Objects([]); // Clear objects on error
-      } finally {
-        setIsLoadingFiles(false);
-      }
+      await loadS3Data(config);
     }
   };
 
   const handleFileSelect = (file: S3File) => {
     setSelectedFile(file);
+  };
+
+  const handleUploadSuccess = async (fileName?: string) => {
+    if (s3Config) {
+      toast({
+        title: 'Refreshing file list...',
+        description: `${fileName ? `"${fileName}" uploaded. ` : ''}Fetching updated contents from S3.`,
+      });
+      await loadS3Data(s3Config);
+    }
   };
 
   return (
@@ -86,6 +100,8 @@ export default function S3ExplorerPage() {
                 onFileSelect={handleFileSelect} 
                 isLoading={isLoadingFiles}
                 configLoaded={!!s3Config}
+                s3Config={s3Config}
+                onUploadSuccess={handleUploadSuccess}
               />
             </div>
         </div>

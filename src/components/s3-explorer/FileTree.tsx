@@ -6,15 +6,20 @@ import { FileTreeItem } from './FileTreeItem';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ListTree } from 'lucide-react';
+import { FileUploadButton } from './FileUploadButton';
+import type { S3Config } from '@/types/s3';
+
 
 interface FileTreeProps {
   items: S3Object[];
   onFileSelect: (file: S3File) => void;
   isLoading: boolean;
   configLoaded: boolean;
+  s3Config: S3Config | null;
+  onUploadSuccess: (fileName?: string) => void;
 }
 
-export function FileTree({ items, onFileSelect, isLoading, configLoaded }: FileTreeProps) {
+export function FileTree({ items, onFileSelect, isLoading, configLoaded, s3Config, onUploadSuccess }: FileTreeProps) {
   if (!configLoaded) {
     return (
       <Card className="h-full shadow-md">
@@ -53,19 +58,28 @@ export function FileTree({ items, onFileSelect, isLoading, configLoaded }: FileT
     );
   }
   
-  if (items.length === 0 && configLoaded && !isLoading) { // Check configLoaded and !isLoading here
+  if (items.length === 0 && configLoaded && !isLoading) {
      return (
       <Card className="h-full shadow-md">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <ListTree className="h-6 w-6 text-accent" />
-            File Explorer
-          </CardTitle>
-          <CardDescription>The S3 bucket appears to be empty or no objects were found.</CardDescription>
+           <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2">
+              <ListTree className="h-6 w-6 text-accent" />
+              File Explorer
+            </CardTitle>
+            {configLoaded && s3Config && (
+              <FileUploadButton
+                s3Config={s3Config}
+                onUploadSuccess={onUploadSuccess}
+                disabled={isLoading}
+              />
+            )}
+          </div>
+          <CardDescription>The S3 bucket appears to be empty or no objects were found. Click the button above to upload new files to the root.</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-center text-muted-foreground p-8">
-            No files or folders found in the configured S3 bucket.
+            No files or folders found.
           </p>
         </CardContent>
       </Card>
@@ -75,11 +89,20 @@ export function FileTree({ items, onFileSelect, isLoading, configLoaded }: FileT
   return (
     <Card className="h-full flex flex-col shadow-md">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <ListTree className="h-6 w-6 text-accent" />
-          File Explorer
-        </CardTitle>
-        <CardDescription>Browse files and folders in your S3 bucket.</CardDescription>
+        <div className="flex justify-between items-center">
+          <CardTitle className="flex items-center gap-2">
+            <ListTree className="h-6 w-6 text-accent" />
+            File Explorer
+          </CardTitle>
+          {configLoaded && s3Config && (
+            <FileUploadButton
+              s3Config={s3Config}
+              onUploadSuccess={onUploadSuccess}
+              disabled={isLoading}
+            />
+          )}
+        </div>
+        <CardDescription>Browse files and folders in your S3 bucket. Click the button above to upload new files to the root.</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow overflow-hidden p-0">
         <ScrollArea className="h-full p-4">
