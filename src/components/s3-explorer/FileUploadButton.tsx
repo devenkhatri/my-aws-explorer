@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import type { S3Config } from '@/types/s3';
 import { Upload } from 'lucide-react';
-import { uploadFileToS3 } from '@/app/actions/uploadFile';
+// Import the new server action for getting pre-signed URLs
+import { getPresignedUploadUrl } from '@/app/actions/getPresignedUploadUrl';
 
 interface FileUploadButtonProps {
   s3Config: S3Config | null;
@@ -35,34 +36,75 @@ export function FileUploadButton({ s3Config, onUploadSuccess, disabled }: FileUp
     }
 
     setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
+    toast({
+      title: 'Preparing Upload...',
+      description: `Requesting secure upload URL for ${file.name}.`,
+    });
 
     try {
-      const result = await uploadFileToS3(s3Config, formData);
+      // 1. Get pre-signed URL from server action
+      console.log(`[FILE_UPLOAD_BUTTON] Requesting pre-signed URL for: ${file.name}, type: ${file.type}`);
+      const presignedUrlResult = await getPresignedUploadUrl(s3Config, {
+        fileName: file.name,
+        fileType: file.type,
+      });
 
-      if (result.success && result.fileName) {
-        toast({
-          title: 'Upload Successful',
-          description: result.message,
-        });
-        onUploadSuccess(result.fileName);
-      } else {
+      if (!presignedUrlResult.success || !presignedUrlResult.url) {
+        console.error('[FILE_UPLOAD_BUTTON] Failed to get pre-signed URL:', presignedUrlResult.message);
         toast({
           title: 'Upload Failed',
-          description: result.message,
+          description: presignedUrlResult.message || 'Could not get upload URL.',
+          variant: 'destructive',
+        });
+        setIsUploading(false);
+        return;
+      }
+
+      toast({
+        title: 'Uploading...',
+        description: `Sending ${file.name} directly to S3. This may take a moment.`,
+      });
+      console.log(`[FILE_UPLOAD_BUTTON] Uploading ${file.name} (${file.type}) directly to S3.`);
+      // Log only a portion of the URL for security/brevity
+      console.log(`[FILE_UPLOAD_BUTTON] Target URL: ${presignedUrlResult.url.substring(0, Math.min(100, presignedUrlResult.url.length))}...`);
+
+
+      // 2. Upload file directly to S3 using fetch
+      const uploadResponse = await fetch(presignedUrlResult.url, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+
+      if (uploadResponse.ok) {
+        console.log(`[FILE_UPLOAD_BUTTON] Successfully uploaded ${file.name} to S3.`);
+        toast({
+          title: 'Upload Successful',
+          description: `File "${file.name}" uploaded to S3.`,
+        });
+        onUploadSuccess(file.name);
+      } else {
+        const errorText = await uploadResponse.text();
+        console.error(`[FILE_UPLOAD_BUTTON] S3 PUT error: ${uploadResponse.status} - ${uploadResponse.statusText}. Response: ${errorText}`);
+        toast({
+          title: 'Upload Failed',
+          // Truncate errorText if it's too long
+          description: `S3 returned an error: ${uploadResponse.status}. ${errorText.substring(0, 150)}${errorText.length > 150 ? '...' : ''}`,
           variant: 'destructive',
         });
       }
     } catch (error) {
-      console.error('Upload error:', error);
+      console.error('[FILE_UPLOAD_BUTTON] Client-side upload error:', error);
       toast({
         title: 'Upload Error',
-        description: error instanceof Error ? error.message : 'An unexpected error occurred.',
+        description: error instanceof Error ? error.message : 'An unexpected client-side error occurred during upload.',
         variant: 'destructive',
       });
     } finally {
       setIsUploading(false);
+      // Reset file input to allow uploading the same file again if needed
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -70,7 +112,9 @@ export function FileUploadButton({ s3Config, onUploadSuccess, disabled }: FileUp
   };
 
   const triggerFileInput = () => {
-    fileInputRef.current?.click();
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
 
   return (
@@ -81,6 +125,7 @@ export function FileUploadButton({ s3Config, onUploadSuccess, disabled }: FileUp
         onChange={handleFileChange}
         className="hidden"
         disabled={isUploading || disabled}
+        aria-hidden="true" // Hide from accessibility tree as it's triggered by button
       />
       <Button
         onClick={triggerFileInput}
