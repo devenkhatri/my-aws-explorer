@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { S3Object, S3File } from '@/types/s3';
@@ -60,10 +61,11 @@ export function FileTree({ items, onFileSelect, isLoading, configLoaded }: FileT
             <ListTree className="h-6 w-6 text-accent" />
             File Explorer
           </CardTitle>
+          <CardDescription>No items to display in the explorer.</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-center text-muted-foreground p-8">
-            No files or folders found in the bucket, or an error occurred.
+            The S3 bucket appears to be empty, or the mock data currently used by the application is not available or is empty.
           </p>
         </CardContent>
       </Card>
@@ -77,7 +79,7 @@ export function FileTree({ items, onFileSelect, isLoading, configLoaded }: FileT
           <ListTree className="h-6 w-6 text-accent" />
           File Explorer
         </CardTitle>
-        <CardDescription>Browse files and folders in your S3 bucket.</CardDescription>
+        <CardDescription>Browse files and folders in your S3 bucket (currently using mock data).</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow overflow-hidden p-0">
         <ScrollArea className="h-full p-4">
@@ -89,3 +91,4 @@ export function FileTree({ items, onFileSelect, isLoading, configLoaded }: FileT
     </Card>
   );
 }
+
