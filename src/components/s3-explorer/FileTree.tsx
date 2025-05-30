@@ -16,7 +16,7 @@ interface FileTreeProps {
   isLoading: boolean;
   configLoaded: boolean;
   s3Config: S3Config | null;
-  onUploadSuccess: (fileName?: string) => void;
+  onUploadSuccess: () => void; // Changed: No longer takes fileName
 }
 
 export function FileTree({ items, onFileSelect, isLoading, configLoaded, s3Config, onUploadSuccess }: FileTreeProps) {

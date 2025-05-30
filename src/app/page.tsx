@@ -60,11 +60,11 @@ export default function S3ExplorerPage() {
     setSelectedFile(file);
   };
 
-  const handleUploadSuccess = async (fileName?: string) => {
+  const handleUploadSuccess = async () => { // Changed: No longer takes fileName
     if (s3Config) {
       toast({
         title: 'Refreshing file list...',
-        description: `${fileName ? `"${fileName}" uploaded. ` : ''}Fetching updated contents from S3.`,
+        description: `Fetching updated contents from S3.`, // Updated description
       });
       await loadS3Data(s3Config);
     }
