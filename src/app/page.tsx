@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -14,28 +15,40 @@ import { FileTree } from '@/components/s3-explorer/FileTree';
 import { FileInfoDisplay } from '@/components/s3-explorer/FileInfoDisplay';
 import { Button } from '@/components/ui/button';
 import type { S3Config, S3Object, S3File } from '@/types/s3';
-import { mockS3Objects } from '@/lib/s3-mock-data'; // Using mock data
-import { CodeXml } from 'lucide-react'; // Icon for app title
+import { fetchS3Objects } from '@/lib/s3-utils'; // Import the new utility
+import { CodeXml, AlertTriangle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
 
 export default function S3ExplorerPage() {
   const [s3Config, setS3Config] = useState<S3Config | null>(null);
-  const [s3Objects, setS3Objects] = useState<S3Object[]>([]); // Initially empty, populated by mock data on config load
+  const [s3Objects, setS3Objects] = useState<S3Object[]>([]);
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [selectedFile, setSelectedFile] = useState<S3File | null>(null);
+  const { toast } = useToast();
 
-  const handleConfigChange = (config: S3Config | null) => {
+  const handleConfigChange = async (config: S3Config | null) => {
     setS3Config(config);
-    setSelectedFile(null); // Reset selected file on config change
+    setSelectedFile(null); 
+    setS3Objects([]); 
+
     if (config) {
-      // Simulate fetching data from S3
       setIsLoadingFiles(true);
-      // For now, just use mock data. In a real app, you'd fetch from S3 here.
-      setTimeout(() => {
-        setS3Objects(mockS3Objects);
+      try {
+        const objects = await fetchS3Objects(config);
+        setS3Objects(objects);
+      } catch (error) {
+        console.error("Failed to load S3 objects:", error);
+        toast({
+          title: 'Error Loading S3 Data',
+          description: error instanceof Error ? error.message : 'Could not fetch data from S3.',
+          variant: 'destructive',
+          action: <AlertTriangle className="text-yellow-500" />,
+        });
+        setS3Objects([]); // Clear objects on error
+      } finally {
         setIsLoadingFiles(false);
-      }, 1000);
-    } else {
-      setS3Objects([]); // Clear file tree if config is removed
+      }
     }
   };
 

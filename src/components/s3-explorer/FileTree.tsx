@@ -42,7 +42,7 @@ export function FileTree({ items, onFileSelect, isLoading, configLoaded }: FileT
             <ListTree className="h-6 w-6 text-accent" />
             File Explorer
           </CardTitle>
-          <CardDescription>Loading files...</CardDescription>
+          <CardDescription>Loading files from S3 bucket...</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex justify-center items-center h-64">
@@ -53,7 +53,7 @@ export function FileTree({ items, onFileSelect, isLoading, configLoaded }: FileT
     );
   }
   
-  if (items.length === 0) {
+  if (items.length === 0 && configLoaded && !isLoading) { // Check configLoaded and !isLoading here
      return (
       <Card className="h-full shadow-md">
         <CardHeader>
@@ -61,11 +61,11 @@ export function FileTree({ items, onFileSelect, isLoading, configLoaded }: FileT
             <ListTree className="h-6 w-6 text-accent" />
             File Explorer
           </CardTitle>
-          <CardDescription>No items to display in the explorer.</CardDescription>
+          <CardDescription>The S3 bucket appears to be empty or no objects were found.</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-center text-muted-foreground p-8">
-            The S3 bucket appears to be empty, or the mock data currently used by the application is not available or is empty.
+            No files or folders found in the configured S3 bucket.
           </p>
         </CardContent>
       </Card>
@@ -79,7 +79,7 @@ export function FileTree({ items, onFileSelect, isLoading, configLoaded }: FileT
           <ListTree className="h-6 w-6 text-accent" />
           File Explorer
         </CardTitle>
-        <CardDescription>Browse files and folders in your S3 bucket (currently using mock data).</CardDescription>
+        <CardDescription>Browse files and folders in your S3 bucket.</CardDescription>
       </CardHeader>
       <CardContent className="flex-grow overflow-hidden p-0">
         <ScrollArea className="h-full p-4">
@@ -91,4 +91,3 @@ export function FileTree({ items, onFileSelect, isLoading, configLoaded }: FileT
     </Card>
   );
 }
-
