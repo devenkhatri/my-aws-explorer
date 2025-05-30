@@ -126,7 +126,7 @@ export default function S3ExplorerPage() {
                 <Button variant="ghost" size="icon" className="h-8 w-8 bg-primary/20 hover:bg-primary/30 text-primary-foreground">
                   <CodeXml className="h-5 w-5 text-primary" />
                 </Button>
-                <h1 className="text-xl font-semibold text-foreground">S3 Explorer</h1>
+                <h1 className="text-xl font-semibold text-foreground">My AWS Explorer</h1>
               </div>
             <SidebarTrigger className="md:hidden" />
           </div>

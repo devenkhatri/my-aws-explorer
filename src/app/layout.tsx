@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'S3 Explorer',
+  title: 'My AWS Explorer',
   description: 'Browse S3 buckets with ease.',
 };
 
