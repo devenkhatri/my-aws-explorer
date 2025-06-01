@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   SidebarProvider,
   Sidebar,
@@ -14,7 +14,7 @@ import { ConfigUpload } from '@/components/s3-explorer/ConfigUpload';
 import { FileTree } from '@/components/s3-explorer/FileTree';
 import { FileInfoDisplay } from '@/components/s3-explorer/FileInfoDisplay';
 import { Button } from '@/components/ui/button';
-import type { S3Config, S3Object, S3File } from '@/types/s3';
+import type { S3Config, S3Object, S3File, S3Folder } from '@/types/s3';
 import { fetchS3Objects } from '@/lib/s3-utils';
 import { CodeXml, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -23,9 +23,10 @@ const S3_CONFIG_STORAGE_KEY = 's3ExplorerConfig';
 
 export default function S3ExplorerPage() {
   const [s3Config, setS3Config] = useState<S3Config | null>(null);
-  const [s3Objects, setS3Objects] = useState<S3Object[]>([]);
+  const [s3Objects, setS3Objects] = useState<S3Object[]>([]); // Stores the entire fetched tree
   const [isLoadingFiles, setIsLoadingFiles] = useState(false);
   const [selectedFile, setSelectedFile] = useState<S3File | null>(null);
+  const [currentPathKey, setCurrentPathKey] = useState<string>(""); // Current folder path being viewed, "" for root
   const { toast } = useToast();
 
   // Effect to load config from localStorage on initial mount
@@ -34,28 +35,27 @@ export default function S3ExplorerPage() {
       const storedConfig = localStorage.getItem(S3_CONFIG_STORAGE_KEY);
       if (storedConfig) {
         const parsedConfig: S3Config = JSON.parse(storedConfig);
-        // Basic validation of stored config
         if (parsedConfig.bucketName && parsedConfig.region && parsedConfig.accessKeyId && parsedConfig.secretAccessKey) {
-          handleConfigChange(parsedConfig, false); // false to prevent immediate re-saving
+          handleConfigChange(parsedConfig, false);
           toast({
             title: 'Configuration Loaded from Cache',
             description: `Using cached S3 config for bucket: ${parsedConfig.bucketName}`,
           });
         } else {
-          localStorage.removeItem(S3_CONFIG_STORAGE_KEY); // Clear invalid stored config
+          localStorage.removeItem(S3_CONFIG_STORAGE_KEY);
         }
       }
     } catch (error) {
       console.error("Failed to load S3 config from localStorage:", error);
-      localStorage.removeItem(S3_CONFIG_STORAGE_KEY); // Clear potentially corrupted data
+      localStorage.removeItem(S3_CONFIG_STORAGE_KEY);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty dependency array ensures this runs only once on mount
-
+  }, []);
 
   const loadS3Data = async (currentConfig: S3Config) => {
     setIsLoadingFiles(true);
-    setSelectedFile(null); // Reset selected file when loading new data
+    setSelectedFile(null);
+    setCurrentPathKey(""); // Reset to root view when loading new data/config
     try {
       const objects = await fetchS3Objects(currentConfig);
       setS3Objects(objects);
@@ -67,7 +67,7 @@ export default function S3ExplorerPage() {
         variant: 'destructive',
         action: <AlertTriangle className="text-yellow-500" />,
       });
-      setS3Objects([]); // Clear objects on error
+      setS3Objects([]);
     } finally {
       setIsLoadingFiles(false);
     }
@@ -77,6 +77,7 @@ export default function S3ExplorerPage() {
     setS3Config(config);
     setSelectedFile(null);
     setS3Objects([]);
+    setCurrentPathKey(""); // Reset path on config change
 
     if (config) {
       if (saveToLocalStorage) {
@@ -93,7 +94,7 @@ export default function S3ExplorerPage() {
       }
       await loadS3Data(config);
     } else {
-      if (saveToLocalStorage) { // Also remove if explicitly cleared or errored during new load
+      if (saveToLocalStorage) {
         try {
           localStorage.removeItem(S3_CONFIG_STORAGE_KEY);
         } catch (error) {
@@ -107,15 +108,48 @@ export default function S3ExplorerPage() {
     setSelectedFile(file);
   };
 
+  const handleNavigate = (pathKey: string) => {
+    setCurrentPathKey(pathKey);
+    setSelectedFile(null); // Clear file selection when navigating folders
+  };
+
+  const getDisplayedItems = useCallback((): S3Object[] => {
+    if (!currentPathKey || currentPathKey === "") {
+      return s3Objects; // Root
+    }
+
+    const findNodeChildren = (nodes: S3Object[], key: string): S3Object[] | null => {
+      for (const node of nodes) {
+        if (node.key === key && node.type === 'folder') {
+          return node.children;
+        }
+        if (node.type === 'folder' && node.children.length > 0) {
+          const foundInChildren = findNodeChildren(node.children, key);
+          if (foundInChildren) return foundInChildren;
+        }
+      }
+      return null;
+    };
+    return findNodeChildren(s3Objects, currentPathKey) || [];
+  }, [s3Objects, currentPathKey]);
+
   const handleUploadSuccess = async () => {
     if (s3Config) {
       toast({
         title: 'Refreshing file list...',
         description: `Fetching updated contents from S3.`,
       });
-      await loadS3Data(s3Config);
+      // Re-fetch data and maintain current path if possible, or reset to root
+      // For simplicity, let's re-fetch all and the user can navigate back if needed.
+      // A more advanced solution would involve intelligently updating only the current view.
+      await loadS3Data(s3Config); 
+      // Note: loadS3Data currently resets currentPathKey to "".
+      // If we want to stay in the same folder after upload, we'd need to preserve and re-apply currentPathKey
+      // or pass it to loadS3Data to selectively refresh. For now, this is simpler.
     }
   };
+  
+  const displayedItems = getDisplayedItems();
 
   return (
     <SidebarProvider defaultOpen>
@@ -141,10 +175,12 @@ export default function S3ExplorerPage() {
 
       <SidebarInset>
         <div className="flex h-full w-full items-start justify-center p-4 md:p-6">
-            <div className="w-full h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)]"> {/* Adjust height for padding */}
+            <div className="w-full h-[calc(100vh-4rem)] md:h-[calc(100vh-5rem)]">
               <FileTree
-                items={s3Objects}
+                items={displayedItems}
                 onFileSelect={handleFileSelect}
+                onNavigate={handleNavigate}
+                currentPathKey={currentPathKey}
                 isLoading={isLoadingFiles}
                 configLoaded={!!s3Config}
                 s3Config={s3Config}
